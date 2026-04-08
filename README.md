@@ -25,13 +25,13 @@ La stack est composée des services suivants :
 └── README.md
 ```
 
-## 🛠️ Installation et Démarrage
+## 🛠️ Prérequis et Démarrage
 
 ### Prérequis
 *   Docker et Docker Compose installés sur la machine hôte.
 *   Ports `3000`, `9090`, `8080` et `9100` disponibles.
 
-### Lancement
+### Démarrage
 1. Clonez ce dépôt sur votre machine et accédez au dossier du projet :
    ```bash
    git clone https://github.com/votre-utilisateur/Supervision.git
