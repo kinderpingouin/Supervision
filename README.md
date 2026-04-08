@@ -61,7 +61,7 @@ La source de données **Prometheus** est configurée automatiquement via le prov
     *   **1860** : Dashboard complet pour l'hôte (Node Exporter).
     *   **19724**: Dashboard pour les conteneurs docker (cAdvisor).
 
-##  Gestion des données et Maintenance
+##  Gestion des données
 
 Les données de Prometheus et Grafana sont stockées dans des **volumes nommés** Docker (`prometheus_data` et `grafana_data`). Cela garantit que vos métriques et configurations ne sont pas perdues lors des redémarrages.
 
@@ -74,7 +74,7 @@ Les données de Prometheus et Grafana sont stockées dans des **volumes nommés*
     docker-compose down -v
     ```
 
-### Dépannage
+##  Maintenance
 Si vous rencontrez une erreur de type "no such file or directory" liée aux volumes, tentez de réinitialiser les volumes spécifiques :
 ```bash
 docker volume rm supervision_grafana_data    # Pour Grafana
