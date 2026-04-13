@@ -3,7 +3,6 @@ apiVersion: 1
 providers:
   - name: 'Dashboards Automatiques'
     orgId: 1
-    folder: 'Infrastucture'
     type: file
     disableDeletion: false
     editable: true
