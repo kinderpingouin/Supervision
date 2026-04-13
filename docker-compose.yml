@@ -1,6 +1,19 @@
-
-
 services:
+  download-dashboards:
+    image: alpine:latest
+    container_name: download-dashboards
+    # Liste des URLs des dashboards JSON à télécharger
+    command: >
+      sh -c "
+      apk add --no-cache curl &&
+      curl -fSL https://grafana.com/api/dashboards/1860/revisions/45/download -o /dashboards/node-exporter.json &&
+      curl -fSL https://grafana.com/api/dashboards/19724/revisions/1/download -o /dashboards/cadvisor.json &&
+      sed -i 's/$$\{DS_PROMETHEUS\}/prometheus_main/g' /dashboards/cadvisor.json
+      "
+    volumes:
+      - ./grafana/provisioning/dashboards/json:/dashboards
+    user: root
+
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -21,6 +34,9 @@ services:
     image: grafana/grafana:latest
     container_name: grafana
     restart: unless-stopped
+    depends_on:
+      download-dashboards:
+        condition: service_completed_successfully
     ports:
       - "3000:3000"
     volumes:

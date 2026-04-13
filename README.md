@@ -22,6 +22,8 @@ La stack est composée des services suivants :
 ├── docker-compose.yml       # Définition des services et volumes
 ├── prometheus/
 │   └── prometheus.yml       # Configuration du scraping des cibles
+├── grafana/
+│   └── provisioning/        # Configuration automatique (datasources & dashboards)
 └── README.md
 ```
 

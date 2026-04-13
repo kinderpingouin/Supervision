@@ -1,0 +1,2 @@
+# Ignorer le répertoire des dashboards
+/grafana/provisioning/dashboards/json
