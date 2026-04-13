@@ -55,13 +55,13 @@ La stack est composée des services suivants :
 
 ## ⚙️ Configuration de Grafana
 
-La source de données **Prometheus** est configurée automatiquement via le provisioning. Pour commencer à visualiser vos données :
+Le provisionnement est entièrement automatisé. Au démarrage de la stack, un conteneur d'initialisation (`download-dashboards`) télécharge les fichiers JSON officiels et applique les corrections nécessaires (via `sed`) pour lier la source de données.
 
-1. Connectez-vous à Grafana (`admin`/`admin`).
-2. Allez dans **Dashboards** > **New** > **Import**.
-3. Utilisez les IDs suivants pour importer des vues professionnelles :
-    *   **1860** : Dashboard complet pour l'hôte (Node Exporter).
-    *   **19724**: Dashboard pour les conteneurs docker (cAdvisor).
+Pour visualiser vos métriques :
+
+1. Connectez-vous à Grafana (`admin` / `admin`).
+2. Rendez-vous directement dans le menu **Dashboards**.
+3. Les tableaux de bord **Node Exporter Full** et **y0nei's cAdvisor dashboard** sont immédiatement disponibles et opérationnels.
 
 ##  Gestion des données
 
