@@ -1,4 +1,4 @@
-# 📊 Stack de Supervision Docker
+# 📊 Stack de Supervision Docker + Host
 
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 ![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=Prometheus&logoColor=white)
