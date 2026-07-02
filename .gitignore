@@ -1,2 +1,6 @@
 # Ignorer le répertoire des dashboards
 /grafana/provisioning/dashboards/json
+
+# Inventaire Ansible : contient l'IP, le port et l'utilisateur SSH du serveur.
+# Copiez ansible/inventory.ini.example vers ansible/inventory.ini pour démarrer.
+/ansible/inventory.ini

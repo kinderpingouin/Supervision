@@ -1,0 +1,11 @@
+# Inventaire des serveurs cibles — modèle.
+# Copiez ce fichier vers inventory.ini (ignoré par git) et renseignez
+# l'adresse, l'utilisateur et le port SSH de votre serveur :
+#   cp inventory.ini.example inventory.ini
+
+[supervision]
+monitoring-server ansible_host=VOTRE_IP ansible_user=VOTRE_USER ansible_port=22
+
+[supervision:vars]
+# Si l'utilisateur SSH n'est pas root, sudo est utilisé (voir ansible.cfg).
+# Si un mot de passe sudo est requis, passez --ask-become-pass en CLI.

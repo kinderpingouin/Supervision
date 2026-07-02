@@ -24,6 +24,7 @@ La stack est composée des services suivants :
 │   └── prometheus.yml       # Configuration du scraping des cibles
 ├── grafana/
 │   └── provisioning/        # Configuration automatique (datasources & dashboards)
+├── ansible/                 # Déploiement distant automatisé (playbook unique)
 └── README.md
 ```
 
@@ -31,7 +32,8 @@ La stack est composée des services suivants :
 
 ### Prérequis
 *   Docker et Docker Compose installés sur la machine hôte.
-*   Ports `3000`, `9090`, `8080` et `9100` disponibles.
+*   Port `3000` (Grafana) disponible — les autres services communiquent
+    uniquement via le réseau interne Docker.
 
 ### Démarrage
 1. Clonez ce dépôt sur votre machine et accédez au dossier du projet :
@@ -44,14 +46,78 @@ La stack est composée des services suivants :
    docker-compose up -d
    ```
 
+## ☁️ Déploiement distant (Ansible)
+
+Un playbook unique ([`ansible/playbook.yml`](./ansible/playbook.yml)) déploie la
+stack sur un serveur distant :
+1. active le **cgroup mémoire** si nécessaire (Raspberry Pi OS le désactive par
+   défaut, ce qui fait remonter des métriques RAM à 0 dans cAdvisor) — cette
+   étape modifie la ligne de boot et **redémarre le serveur** ;
+2. installe **Docker Engine** + le plugin **Compose** via le script officiel
+   [get.docker.com](https://get.docker.com) ;
+3. copie les fichiers de configuration du projet dans `/opt/supervision` ;
+4. lance la stack avec `docker compose up -d`.
+
+### Prérequis
+
+*   **Machine de contrôle** (votre poste) : Ansible installé
+    (`pipx install ansible` ou `apt install ansible`).
+*   **Serveur cible** : une distribution supportée par get.docker.com
+    (Debian, Ubuntu, Fedora, etc.), un accès **SSH** avec droits **sudo**,
+    et le port `3000` disponible.
+
+> Aucune collection Ansible externe n'est requise : seuls les modules du cœur
+> (`ansible.builtin`) sont utilisés.
+
+### Configuration
+
+1. **Inventaire** — copiez le modèle puis renseignez l'IP/hostname et
+   l'utilisateur SSH de votre serveur (`inventory.ini` est ignoré par git,
+   vos coordonnées ne seront jamais commitées) :
+   ```bash
+   cp ansible/inventory.ini.example ansible/inventory.ini
+   ```
+   ```ini
+   [supervision]
+   monitoring-server ansible_host=VOTRE_IP ansible_user=VOTRE_USER
+   ```
+
+2. **Variables** (optionnel) — en tête de `ansible/playbook.yml`, personnalisez
+   le répertoire de déploiement et surtout le **mot de passe Grafana** :
+   ```yaml
+   grafana_admin_user: admin
+   grafana_admin_password: "un-mot-de-passe-solide"
+   ```
+   Pour ne pas stocker le mot de passe en clair, utilisez Ansible Vault :
+   ```bash
+   ansible-vault encrypt_string 'MonMotDePasse' --name grafana_admin_password
+   ```
+
+### Déploiement
+
+```bash
+cd ansible
+
+# Test de connexion
+ansible supervision -m ping
+
+# Déploiement (ajoutez --ask-become-pass si sudo requiert un mot de passe)
+ansible-playbook playbook.yml
+```
+
+Une fois terminé, Grafana est accessible sur `http://VOTRE_IP:3000`.
+
+Le playbook est **idempotent** : relancez-le après une modification des
+fichiers de configuration pour les appliquer. `docker compose up -d` ne recrée
+que les conteneurs dont la configuration a changé.
+
 ## 🌐 Accès aux interfaces
 
-| Service | URL | Identifiants par défaut |
-| :--- | :--- | :--- |
-| **Grafana** | `http://localhost:3000` | `admin` / `admin` |
-| **Prometheus** | `http://localhost:9090` | - |
-| **cAdvisor** | `http://localhost:8080` | - |
-| **Node Exporter** | `http://localhost:9100/metrics` | - |
+Seul **Grafana** est publié sur l'hôte : `http://localhost:3000`
+(identifiants par défaut `admin` / `admin`).
+
+Prometheus (`9090`), cAdvisor (`8080`) et Node Exporter (`9100`) ne sont
+accessibles que depuis le réseau interne Docker.
 
 ## ⚙️ Configuration de Grafana
 
@@ -89,7 +155,7 @@ docker volume rm supervision_prometheus_data # Pour Prometheus
 > Cette configuration est optimisée pour un usage local ou un réseau privé. Pour une exposition sur internet :
 > *   Changez immédiatement le mot de passe administrateur de Grafana.
 > *   Utilisez un Reverse Proxy (comme Nginx ou Traefik) avec terminaison SSL.
-> *   Ne publiez pas les ports de collecte (`9090`, `9100`, `8080`) sur votre interface publique ; laissez-les accessibles uniquement via le réseau interne de Docker ou l'hôte local.
+> *   Les ports de collecte (`9090`, `9100`, `8080`) ne sont pas publiés sur l'hôte ; ils restent accessibles uniquement via le réseau interne de Docker.
 
 ## 📄 Licence
 

@@ -1,0 +1,97 @@
+---
+- name: Déploiement de la stack de supervision (Prometheus + Grafana)
+  hosts: supervision
+  become: true
+
+  vars:
+    # Répertoire d'installation sur le serveur distant
+    supervision_dir: /opt/supervision
+    # Identifiants administrateur Grafana.
+    # IMPORTANT : changez le mot de passe, idéalement via Ansible Vault :
+    #   ansible-vault encrypt_string 'MonMotDePasse' --name grafana_admin_password
+    grafana_admin_user: admin
+    grafana_admin_password: admin
+
+  tasks:
+    # Raspberry Pi OS désactive le cgroup mémoire par défaut : sans lui, le
+    # noyau ne comptabilise pas la RAM par conteneur et cAdvisor remonte 0.
+    - name: Vérifier que le contrôleur cgroup mémoire est actif
+      ansible.builtin.command: grep -qw memory /sys/fs/cgroup/cgroup.controllers
+      register: cgroup_memory
+      changed_when: false
+      failed_when: false
+
+    - name: Vérifier la présence de la ligne de boot Raspberry Pi
+      ansible.builtin.stat:
+        path: /boot/firmware/cmdline.txt
+      register: rpi_cmdline
+      when: cgroup_memory.rc != 0
+
+    - name: Activer le cgroup mémoire puis redémarrer (Raspberry Pi)
+      when: cgroup_memory.rc != 0 and (rpi_cmdline.stat.exists | default(false))
+      block:
+        - name: Retirer cgroup_disable=memory de la ligne de boot
+          ansible.builtin.replace:
+            path: /boot/firmware/cmdline.txt
+            regexp: '\s*cgroup_disable=memory'
+            replace: ''
+
+        - name: Ajouter cgroup_enable=memory cgroup_memory=1 à la ligne de boot
+          ansible.builtin.replace:
+            path: /boot/firmware/cmdline.txt
+            regexp: '^(?!.*cgroup_enable=memory)(.+?)\s*$'
+            replace: '\1 cgroup_enable=memory cgroup_memory=1'
+
+        - name: Redémarrer le serveur pour activer le cgroup mémoire
+          ansible.builtin.reboot:
+            msg: Activation du cgroup mémoire (métriques RAM cAdvisor)
+
+    - name: Installer curl
+      ansible.builtin.package:
+        name: curl
+        state: present
+
+    - name: Installer Docker Engine et le plugin Compose (script officiel)
+      ansible.builtin.shell: curl -fsSL https://get.docker.com | sh
+      args:
+        creates: /usr/bin/docker
+
+    - name: S'assurer que Docker est démarré et activé au boot
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Créer le répertoire de déploiement
+      ansible.builtin.file:
+        path: "{{ supervision_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copier les fichiers du projet
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../{{ item }}"
+        dest: "{{ supervision_dir }}/"
+        mode: preserve
+      loop:
+        - docker-compose.yml
+        - prometheus
+        - grafana
+
+    - name: Injecter les identifiants Grafana (override compose)
+      ansible.builtin.copy:
+        dest: "{{ supervision_dir }}/docker-compose.override.yml"
+        mode: "0644"
+        content: |
+          services:
+            grafana:
+              environment:
+                - GF_SECURITY_ADMIN_USER={{ grafana_admin_user }}
+                - GF_SECURITY_ADMIN_PASSWORD={{ grafana_admin_password }}
+
+    - name: Démarrer / mettre à jour la stack
+      ansible.builtin.command:
+        cmd: docker compose up -d --remove-orphans
+        chdir: "{{ supervision_dir }}"
+      register: compose_up
+      changed_when: compose_up.stderr is search('Started|Created|Recreated')
