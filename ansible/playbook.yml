@@ -6,11 +6,14 @@
   vars:
     # Répertoire d'installation sur le serveur distant
     supervision_dir: /opt/supervision
-    # Identifiants administrateur Grafana.
-    # IMPORTANT : changez le mot de passe, idéalement via Ansible Vault :
-    #   ansible-vault encrypt_string 'MonMotDePasse' --name grafana_admin_password
+    # Identifiants administrateur Grafana. Le mot de passe vient du vault
+    # chiffré (vault.yml) ; pour le changer :
+    #   ansible-vault edit vault.yml
     grafana_admin_user: admin
-    grafana_admin_password: admin
+    grafana_admin_password: "{{ vault_grafana_admin_password }}"
+
+  vars_files:
+    - vault.yml
 
   tasks:
     # Raspberry Pi OS désactive le cgroup mémoire par défaut : sans lui, le

@@ -4,3 +4,8 @@
 # Inventaire Ansible : contient l'IP, le port et l'utilisateur SSH du serveur.
 # Copiez ansible/inventory.ini.example vers ansible/inventory.ini pour démarrer.
 /ansible/inventory.ini
+
+# Vault Ansible : ni la clé ni le vault ne sont versionnés.
+# Voir README (section Déploiement distant) pour les régénérer.
+/ansible/.vault_pass
+/ansible/vault.yml

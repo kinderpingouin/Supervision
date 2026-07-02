@@ -42,9 +42,9 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - grafana_data:/var/lib/grafana
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+    # Identifiants par défaut : admin / admin (changement forcé à la 1re
+    # connexion). En déploiement Ansible, le docker-compose.override.yml
+    # généré injecte les identifiants du vault.
 
   node-exporter:
     image: prom/node-exporter:latest

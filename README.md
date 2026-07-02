@@ -82,16 +82,36 @@ stack sur un serveur distant :
    monitoring-server ansible_host=VOTRE_IP ansible_user=VOTRE_USER
    ```
 
-2. **Variables** (optionnel) — en tête de `ansible/playbook.yml`, personnalisez
-   le répertoire de déploiement et surtout le **mot de passe Grafana** :
-   ```yaml
-   grafana_admin_user: admin
-   grafana_admin_password: "un-mot-de-passe-solide"
-   ```
-   Pour ne pas stocker le mot de passe en clair, utilisez Ansible Vault :
+2. **Mot de passe Grafana** — il est stocké chiffré dans `ansible/vault.yml`
+   (Ansible Vault), déchiffré grâce à la clé `ansible/.vault_pass` référencée
+   dans `ansible.cfg`. Ces deux fichiers sont **ignorés par git** : ils doivent
+   être générés sur chaque nouveau clone.
+
+   Procédure de génération (depuis le dossier `ansible/`) :
    ```bash
-   ansible-vault encrypt_string 'MonMotDePasse' --name grafana_admin_password
+   cd ansible
+
+   # 1. Générer la clé du vault (aléatoire, lisible par vous seul)
+   openssl rand -base64 24 > .vault_pass && chmod 600 .vault_pass
+
+   # 2. Créer le vault avec un mot de passe Grafana aléatoire...
+   printf -- '---\nvault_grafana_admin_password: "%s"\n' "$(openssl rand -base64 18)" > vault.yml
+   ansible-vault encrypt vault.yml
+
+   #    ...ou saisir le vôtre à la main (contenu attendu ci-dessous) :
+   # ansible-vault create vault.yml
    ```
+   Contenu attendu du vault :
+   ```yaml
+   ---
+   vault_grafana_admin_password: "un-mot-de-passe-solide"
+   ```
+   Ensuite : `ansible-vault view vault.yml` pour consulter le mot de passe,
+   `ansible-vault edit vault.yml` pour le modifier.
+
+3. **Autres variables** (optionnel) — en tête de `ansible/playbook.yml`,
+   personnalisez le répertoire de déploiement (`supervision_dir`) ou
+   l'utilisateur admin Grafana (`grafana_admin_user`).
 
 ### Déploiement
 
