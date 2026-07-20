@@ -14,6 +14,29 @@ services:
       - ./grafana/provisioning/dashboards/json:/dashboards
     user: root
 
+  generate-certs:
+    image: alpine:latest
+    container_name: generate-certs
+    # Génère un certificat TLS auto-signé pour Grafana s'il n'existe pas déjà
+    # (persistant dans le volume grafana_certs, donc regénéré uniquement au
+    # premier démarrage ou après suppression du volume).
+    # GRAFANA_CERT_SAN liste les noms/IP supplémentaires à inclure dans le
+    # certificat (ex: DNS:mon-domaine,IP:1.2.3.4) ; en déploiement Ansible,
+    # le docker-compose.override.yml généré y injecte l'IP du serveur cible.
+    environment:
+      - GRAFANA_CERT_SAN=${GRAFANA_CERT_SAN:-DNS:localhost,IP:127.0.0.1}
+    command: >
+      sh -c "
+      apk add --no-cache openssl &&
+      if [ ! -f /certs/grafana.crt ]; then
+      openssl req -x509 -nodes -days 825 -newkey rsa:2048 -keyout /certs/grafana.key -out /certs/grafana.crt -subj '/CN=grafana' -addext subjectAltName=$$GRAFANA_CERT_SAN;
+      fi &&
+      chmod 644 /certs/grafana.crt /certs/grafana.key
+      "
+    volumes:
+      - grafana_certs:/certs
+    user: root
+
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -37,11 +60,20 @@ services:
     depends_on:
       download-dashboards:
         condition: service_completed_successfully
+      generate-certs:
+        condition: service_completed_successfully
     ports:
       - "3000:3000"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - grafana_data:/var/lib/grafana
+      - grafana_certs:/etc/grafana/certs:ro
+    environment:
+      # HTTPS natif avec le certificat auto-signé généré par generate-certs :
+      # le port 3000 ne sert plus que du HTTPS, le HTTP y est désactivé.
+      - GF_SERVER_PROTOCOL=https
+      - GF_SERVER_CERT_FILE=/etc/grafana/certs/grafana.crt
+      - GF_SERVER_CERT_KEY=/etc/grafana/certs/grafana.key
     # Identifiants par défaut : admin / admin (changement forcé à la 1re
     # connexion). En déploiement Ansible, le docker-compose.override.yml
     # généré injecte les identifiants du vault.
@@ -78,3 +110,4 @@ services:
 volumes:
   prometheus_data:
   grafana_data:
+  grafana_certs:

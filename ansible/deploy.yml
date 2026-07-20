@@ -16,6 +16,16 @@
     - vault.yml
 
   tasks:
+    # Le certificat TLS auto-signé de Grafana doit lister l'adresse utilisée
+    # pour y accéder (SAN), sans quoi le navigateur ajoute un avertissement
+    # de correspondance de nom en plus de celui, attendu, lié à l'auto-signature.
+    - name: Déterminer le type de SAN à ajouter au certificat (IP ou nom d'hôte)
+      ansible.builtin.set_fact:
+        grafana_cert_host_san: >-
+          {{ ('IP:' ~ ansible_host)
+             if ansible_host is match('^[0-9]{1,3}(\.[0-9]{1,3}){3}$')
+             else ('DNS:' ~ ansible_host) }}
+
     # Raspberry Pi OS désactive le cgroup mémoire par défaut : sans lui, le
     # noyau ne comptabilise pas la RAM par conteneur et cAdvisor remonte 0.
     - name: Vérifier que le contrôleur cgroup mémoire est actif
@@ -91,6 +101,9 @@
               environment:
                 - GF_SECURITY_ADMIN_USER={{ grafana_admin_user }}
                 - GF_SECURITY_ADMIN_PASSWORD={{ grafana_admin_password }}
+            generate-certs:
+              environment:
+                - GRAFANA_CERT_SAN=DNS:localhost,IP:127.0.0.1,{{ grafana_cert_host_san }}
 
     - name: Démarrer / mettre à jour la stack
       ansible.builtin.command:

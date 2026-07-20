@@ -48,7 +48,7 @@ La stack est composée des services suivants :
 
 ## ☁️ Déploiement distant (Ansible)
 
-Un playbook unique ([`ansible/playbook.yml`](./ansible/playbook.yml)) déploie la
+Un playbook unique ([`ansible/deploy.yml`](./ansible/deploy.yml)) déploie la
 stack sur un serveur distant :
 1. active le **cgroup mémoire** si nécessaire (Raspberry Pi OS le désactive par
    défaut, ce qui fait remonter des métriques RAM à 0 dans cAdvisor) — cette
@@ -109,7 +109,7 @@ stack sur un serveur distant :
    Ensuite : `ansible-vault view vault.yml` pour consulter le mot de passe,
    `ansible-vault edit vault.yml` pour le modifier.
 
-3. **Autres variables** (optionnel) — en tête de `ansible/playbook.yml`,
+3. **Autres variables** (optionnel) — en tête de `ansible/deploy.yml`,
    personnalisez le répertoire de déploiement (`supervision_dir`) ou
    l'utilisateur admin Grafana (`grafana_admin_user`).
 
@@ -122,10 +122,12 @@ cd ansible
 ansible supervision -m ping
 
 # Déploiement (ajoutez --ask-become-pass si sudo requiert un mot de passe)
-ansible-playbook playbook.yml
+ansible-playbook deploy.yml
 ```
 
-Une fois terminé, Grafana est accessible sur `http://VOTRE_IP:3000`.
+Une fois terminé, Grafana est accessible sur `https://VOTRE_IP:3000` (le
+navigateur affichera un avertissement lié au certificat auto-signé, voir la
+section [Sécurité](#-sécurité)).
 
 Le playbook est **idempotent** : relancez-le après une modification des
 fichiers de configuration pour les appliquer. `docker compose up -d` ne recrée
@@ -133,8 +135,12 @@ que les conteneurs dont la configuration a changé.
 
 ## 🌐 Accès aux interfaces
 
-Seul **Grafana** est publié sur l'hôte : `http://localhost:3000`
-(identifiants par défaut `admin` / `admin`).
+Seul **Grafana** est publié sur l'hôte, exclusivement en **HTTPS** :
+`https://localhost:3000` (identifiants par défaut `admin` / `admin`).
+
+Le port 3000 ne sert plus du tout de HTTP en clair : une requête `http://`
+échoue (le serveur TLS refuse de dialoguer en clair), ce qui empêche tout
+accès non chiffré à Grafana.
 
 Prometheus (`9090`), cAdvisor (`8080`) et Node Exporter (`9100`) ne sont
 accessibles que depuis le réseau interne Docker.
@@ -171,10 +177,45 @@ docker volume rm supervision_prometheus_data # Pour Prometheus
 
 ## 🔒 Sécurité
 
+### HTTPS avec certificat auto-signé
+
+Grafana n'expose plus que du **HTTPS** sur le port `3000` : un conteneur
+d'initialisation (`generate-certs`) génère un certificat TLS auto-signé au
+premier démarrage (clé RSA 2048, valide 825 jours), stocké dans le volume
+nommé `grafana_certs` — il n'est donc généré qu'une seule fois, puis réutilisé
+aux redémarrages suivants.
+
+Le navigateur affichera un avertissement de sécurité (« connexion non privée »)
+car le certificat n'est signé par aucune autorité reconnue : c'est attendu
+pour un certificat auto-signé, il suffit d'ajouter une exception pour ce site.
+Le trafic reste bien chiffré, ce n'est qu'une question de confiance de la
+chaîne de certification.
+
+Par défaut, le certificat couvre `localhost` et `127.0.0.1`. Pour ajouter
+d'autres noms/IP (ex. accès via une IP LAN ou un nom de domaine), personnalisez
+la variable d'environnement `GRAFANA_CERT_SAN` (format `DNS:...,IP:...`), par
+exemple via un fichier `.env` :
+```env
+GRAFANA_CERT_SAN=DNS:localhost,IP:127.0.0.1,IP:192.168.1.50
+```
+En déploiement Ansible, l'IP (ou le nom) du serveur cible renseigné dans
+l'inventaire (`ansible_host`) est automatiquement ajoutée au certificat.
+
+Pour régénérer le certificat (ex. après un changement de `GRAFANA_CERT_SAN`
+ou une IP de serveur modifiée), supprimez le volume dédié puis relancez la
+stack :
+```bash
+docker compose down
+docker volume rm supervision_grafana_certs
+docker compose up -d
+```
+
 > [!IMPORTANT]
 > Cette configuration est optimisée pour un usage local ou un réseau privé. Pour une exposition sur internet :
 > *   Changez immédiatement le mot de passe administrateur de Grafana.
-> *   Utilisez un Reverse Proxy (comme Nginx ou Traefik) avec terminaison SSL.
+> *   Remplacez le certificat auto-signé par un certificat émis par une
+>     autorité reconnue (ex. Let's Encrypt), généralement via un Reverse Proxy
+>     (Nginx, Traefik, Caddy) qui gère le renouvellement automatique.
 > *   Les ports de collecte (`9090`, `9100`, `8080`) ne sont pas publiés sur l'hôte ; ils restent accessibles uniquement via le réseau interne de Docker.
 
 ## 📄 Licence
